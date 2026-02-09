@@ -1,0 +1,307 @@
+import React, { useState } from 'react'
+import { useEffect } from "react"
+
+type Month = '' | '01' | '02' | '03' | '04' | '05' | '06' |
+'07' | '08' | '09' | '10' | '11' | '12';
+
+type Day = '' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' |
+'10' | '11' | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' |
+'21' | '22' | '23' | '24' | '25' | '26' | '27' | '28' | '29' | '30' | '31'
+
+type Year = '' | '2014' | '2015' | '2016' | '2017' | '2018' | '2019' | '2020' |
+'2021' | '2022' | '2023' | '2024' | '2025'
+
+interface Todo {
+  id: number,
+  title: string,
+  day: Day,
+  month: Month,
+  year: Year,
+  completed: boolean,
+  description: string,
+}
+
+interface DataButton extends HTMLButtonElement {
+  dataset: { id: string }
+}
+
+type Visibility = 'visible' | 'hidden';
+
+function Modal(
+  { currTodo, title, desc, year, month, day,
+    setTitle, setDesc, setYear, setMonth, setDay, showModal, sendComplete }:
+  { currTodo: undefined | Todo,
+    title: string,
+    desc: string,
+    year: Year,
+    month: Month,
+    day: Day,
+    setTitle: React.Dispatch<React.SetStateAction<string>>,
+    setDesc: React.Dispatch<React.SetStateAction<string>>,
+    setYear: React.Dispatch<React.SetStateAction<Year>>,
+    setMonth: React.Dispatch<React.SetStateAction<Month>>,
+    setDay: React.Dispatch<React.SetStateAction<Day>>,
+    showModal: () => void,
+    sendComplete: (currTodo: Todo) => Promise<void>
+  }) {
+  
+  function updateTitle(event: React.SyntheticEvent) {
+    let target = event.target as HTMLInputElement;
+    let value: string = target.value;
+
+    setTitle(value);
+  }
+
+  function updateDescription(event: React.SyntheticEvent) {
+    let target = event.target as HTMLTextAreaElement;
+    let value: string = target.value;
+
+    setDesc(value);
+  }
+
+  function updateDay(event: React.SyntheticEvent) {
+    let target = event.target as HTMLSelectElement;
+    let value: Day = target.value as Day;
+
+    setDay(value);
+  }
+
+  function updateMonth(event: React.SyntheticEvent) {
+    let target = event.target as HTMLSelectElement;
+    let value: Month = target.value as Month;
+
+    setMonth(value);
+  }
+  
+  function updateYear(event: React.SyntheticEvent) {
+    let target = event.target as HTMLSelectElement;
+    let value: Year = target.value as Year;
+
+    setYear(value);
+  }
+
+  function resetModalState() {
+    setTitle('');
+    setDesc('');
+    setDay('');
+    setMonth('');
+    setYear('');
+  }
+
+  function handleMarkComplete() {
+    if (currTodo === undefined) {
+      alert('Cannot complete a todo that does not yet exist');
+      return;
+    } else if (currTodo.completed === false) {
+      sendComplete(currTodo)
+    }
+
+    showModal();
+    resetModalState()
+  }
+
+  function handleSubmit(event: React.SyntheticEvent) {
+    event.preventDefault();
+  }
+
+  function generateDayOptions() {
+
+    let dayOptions = [<option value='' key='defaultDay'>Day</option>];
+    
+    for (let i = 1; i <= 31; i += 1) {
+      let strVal = String(i);
+      if (strVal.length === 1) {
+        strVal = '0' + strVal;
+      }
+      
+      dayOptions.push(<option value={strVal} key={"day-"+ strVal}>{i}</option>)
+
+    }
+    
+    return dayOptions;
+  }
+  
+  return (
+    <>
+      <form onSubmit={handleSubmit}>
+        <ul>
+          <li>
+            <label>Title<input type="text"
+                               placeholder="Todo title"
+                               onChange={updateTitle}
+                               value={title}/></label>
+          </li>
+
+          <li>
+            <label>Due Date
+              <div className="due_day">
+                <select onChange={updateDay} value={day}>
+                  {generateDayOptions()}
+                </select>
+              </div>
+              <div className="due_month">
+                <select onChange={updateMonth} value={month}>
+                  <option value=''>Month</option>
+                  <option value='01'>January</option>
+                  <option value='02'>February</option>
+                  <option value='03'>March</option>
+                  <option value='04'>April</option>
+                  <option value='05'>May</option>
+                  <option value='06'>June</option>
+                  <option value='07'>July</option>
+                  <option value='08'>August</option>
+                  <option value='09'>September</option>
+                  <option value='10'>October</option>
+                  <option value='11'>November</option>
+                  <option value='12'>December</option>
+                </select>
+              </div>
+              <div className="due_year">
+                <select onChange={updateYear} value={year}>
+                  <option value=''>Year</option>
+                  <option value='2014'>2014</option>
+                  <option value='2015'>2015</option>
+                  <option value='2016'>2016</option>
+                  <option value='2017'>2017</option>
+                  <option value='2018'>2018</option>
+                  <option value='2019'>2019</option>
+                  <option value='2020'>2020</option>
+                  <option value='2021'>2021</option>
+                  <option value='2022'>2022</option>
+                  <option value='2023'>2023</option>
+                  <option value='2024'>2024</option>
+                  <option value='2025'>2025</option>
+                </select>
+              </div>
+            </label>
+          </li>
+          <li>
+            <label>Decription<textarea onChange={updateDescription} value={desc}></textarea></label>
+          </li>
+        </ul>
+
+        <input type="submit"/>
+        <button onClick={handleMarkComplete}>Mark as Complete</button>
+      </form>
+    </>
+  )
+}
+
+function App() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [refreshTodos, setRefresh] = useState(false);
+  const [currTodo, setCurrTodo] = useState<Todo | undefined>(undefined);
+  const [visibility, setVisibility] = useState<Visibility>('hidden');
+  const [title, setTitle] = useState('');
+  const [year, setYear] = useState<Year>('');
+  const [month, setMonth] = useState<Month>('');
+  const [day, setDay] = useState<Day>('');
+  const [desc, setDesc] = useState('');
+
+  function getTodos() {
+    fetch('http://localhost:3000/api/todos')
+      .then((response: Response) => {
+        return response.json();
+      })
+      .then ((data: Array<Todo>) => {
+        setTodos(data)
+      })
+  }
+
+  async function sendComplete(currentTodo: Todo) {
+    let body = JSON.stringify({ completed: !currentTodo.completed });
+    let options = {
+      method: 'PUT',
+      body: body,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+    let path = `http://localhost:3000/api/todos/${currentTodo.id}`;
+
+    try {
+      let response: Response = await fetch(path, options)
+      if (response.ok) {
+        setRefresh(!refreshTodos);
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  function markComplete(event: React.SyntheticEvent) {
+    let target = event.target as DataButton;
+    let id: number = Number(target.dataset.id);
+    let currentTodo = todos.filter( todo => todo.id === id)[0];
+
+    sendComplete(currentTodo);
+  }
+  
+  function showModal() {
+    if (visibility === 'visible') {
+      setVisibility('hidden');
+    } else {
+      setVisibility('visible');
+    }
+    return;
+  }
+
+  function createNewTodo() {
+    setCurrTodo(undefined);
+    showModal();
+  }
+
+  function editTodo(event: React.SyntheticEvent) {
+    showModal();
+
+    let target = event.target as DataButton;
+    let id = target.dataset.id;
+    let currTodo = todos.find(todo => todo.id === Number(id));
+    setCurrTodo(currTodo);
+    if (currTodo == undefined) {
+      alert('That todo does not exist but should');
+    } else {
+      setTitle(currTodo.title);
+      setDesc(currTodo.description);
+      setDay(currTodo.day);
+      setYear(currTodo.year);
+      setMonth(currTodo.month);
+    }
+  }
+
+  useEffect(getTodos, [refreshTodos]);
+
+  return (
+    <>
+      <button onClick={createNewTodo}>Add new todo</button>
+      <ul>
+        {todos.map((todo) => {
+          return <li key={todo.id} data-id={String(todo.id)}>
+            {todo.title}:completed: {String(todo.completed)}
+            <button onClick={editTodo}
+                    data-id={String(todo.id)}>Edit Todo</button>
+            <button onClick={markComplete}
+                    data-id={String(todo.id)}>Toggle Complete</button>
+          </li>
+        })}
+      </ul>
+      <div style={{"visibility": visibility}}>
+        <Modal currTodo={currTodo}
+               title={title}
+               setTitle={setTitle}
+               desc={desc}
+               setDesc={setDesc}
+               month={month}
+               setMonth={setMonth}
+               day={day}
+               setDay={setDay}
+               year={year}
+               setYear={setYear}
+               showModal={showModal}
+               sendComplete={sendComplete}/>
+      </div>
+    </>
+  )
+}
+
+export default App
