@@ -1,17 +1,17 @@
-import React, { useState } from 'react'
-import { useEffect } from "react"
+import React, { useState } from 'react';
+import { useEffect } from "react";
 
 type Month = '' | '01' | '02' | '03' | '04' | '05' | '06' |
 '07' | '08' | '09' | '10' | '11' | '12';
 
 type Day = '' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' |
 '10' | '11' | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' |
-'21' | '22' | '23' | '24' | '25' | '26' | '27' | '28' | '29' | '30' | '31'
+'21' | '22' | '23' | '24' | '25' | '26' | '27' | '28' | '29' | '30' | '31';
 
 type Year = '' | '2014' | '2015' | '2016' | '2017' | '2018' | '2019' | '2020' |
-'2021' | '2022' | '2023' | '2024' | '2025'
+'2021' | '2022' | '2023' | '2024' | '2025';
 
-interface Todo {
+interface Todo extends NewTodo {
   id: number,
   title: string,
   day: Day,
@@ -19,29 +19,46 @@ interface Todo {
   year: Year,
   completed: boolean,
   description: string,
-}
+};
+
+interface NewTodo {
+  title: string,
+  day?: Day,
+  month?: Month,
+  year?: Year,
+  completed: boolean,
+  description?: string,
+};
 
 interface DataButton extends HTMLButtonElement {
   dataset: { id: string }
-}
+};
+
+type SortedTodo = {
+  [key: string]: Todo[],
+  'No Due Date': Todo[],
+};
 
 type Visibility = 'visible' | 'hidden';
 
 function Modal(
-  { currTodo, title, desc, year, month, day,
-    setTitle, setDesc, setYear, setMonth, setDay, showModal, sendComplete }:
+  { currTodo, title, description, year, month, day, refreshTodos,
+    setTitle, setDescription, setYear, setMonth, setDay, toggleModal,
+    sendComplete, setRefresh }:
   { currTodo: undefined | Todo,
     title: string,
-    desc: string,
+    description: string,
     year: Year,
     month: Month,
     day: Day,
+    refreshTodos: boolean,
     setTitle: React.Dispatch<React.SetStateAction<string>>,
-    setDesc: React.Dispatch<React.SetStateAction<string>>,
+    setDescription: React.Dispatch<React.SetStateAction<string>>,
     setYear: React.Dispatch<React.SetStateAction<Year>>,
     setMonth: React.Dispatch<React.SetStateAction<Month>>,
     setDay: React.Dispatch<React.SetStateAction<Day>>,
-    showModal: () => void,
+    setRefresh: React.Dispatch<React.SetStateAction<boolean>>,
+    toggleModal: () => void,
     sendComplete: (currTodo: Todo) => Promise<void>
   }) {
   
@@ -56,7 +73,7 @@ function Modal(
     let target = event.target as HTMLTextAreaElement;
     let value: string = target.value;
 
-    setDesc(value);
+    setDescription(value);
   }
 
   function updateDay(event: React.SyntheticEvent) {
@@ -82,7 +99,7 @@ function Modal(
 
   function resetModalState() {
     setTitle('');
-    setDesc('');
+    setDescription('');
     setDay('');
     setMonth('');
     setYear('');
@@ -96,12 +113,91 @@ function Modal(
       sendComplete(currTodo)
     }
 
-    showModal();
+    toggleModal();
     resetModalState()
   }
 
   function handleSubmit(event: React.SyntheticEvent) {
     event.preventDefault();
+    
+    if (!currTodo) {
+      postNew();
+    } else {
+      putEdits();
+    }
+
+    toggleModal();
+    resetModalState();
+  }
+
+  function createTodoFromForm(newTodo: true): NewTodo;
+  function createTodoFromForm(newTodo: false): Todo;
+  function createTodoFromForm(newTodo: boolean): Todo | NewTodo {
+    let todo = {
+      title: title,
+      completed: false,
+      description: description || undefined,
+      day: day || undefined,
+      month: month || undefined,
+      year: year || undefined,
+    };
+
+    if (newTodo) {
+      return todo;
+    } else if (currTodo && !newTodo) {
+      return {...todo, id: currTodo.id, completed: currTodo.completed }
+    } else {
+      throw new Error('function called without existing todo')
+    }
+  }
+
+  async function putEdits() {
+    let editedTodo: Todo = createTodoFromForm(false);
+    let body = JSON.stringify(editedTodo);
+    let options = {
+      method: 'PUT',
+      body: body,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+    let path = `http://localhost:3000/api/todos/${editedTodo.id}`;
+
+    try {
+      let response: Response = await fetch(path, options)
+      if (response.ok) {
+        setRefresh(!refreshTodos);
+      } else {
+        console.error(response.status)
+      }
+    } catch (error) {
+      if (error instanceof Error) console.log(error.message);
+    }
+  }
+
+  async function postNew() {
+    let newTodo: NewTodo = createTodoFromForm(true);
+    
+    let body = JSON.stringify(newTodo);
+    let options = {
+      method: 'POST',
+      body: body,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+    let path = `http://localhost:3000/api/todos/`;
+
+    try {
+      let response: Response = await fetch(path, options)
+      if (response.ok) {
+        setRefresh(!refreshTodos);
+      } else {
+        console.error(response.status)
+      }
+    } catch (error) {
+      if (error instanceof Error) console.log(error.message);
+    }
   }
 
   function generateDayOptions() {
@@ -176,12 +272,18 @@ function Modal(
             </label>
           </li>
           <li>
-            <label>Decription<textarea onChange={updateDescription} value={desc}></textarea></label>
+            <label>Decription
+              <textarea onChange={updateDescription}
+              value={description}>
+              </textarea>
+            </label>
           </li>
         </ul>
 
         <input type="submit"/>
-        <button onClick={handleMarkComplete}>Mark as Complete</button>
+        <button type="button" onClick={handleMarkComplete}>
+          Mark as Complete
+        </button>
       </form>
     </>
   )
@@ -196,7 +298,7 @@ function App() {
   const [year, setYear] = useState<Year>('');
   const [month, setMonth] = useState<Month>('');
   const [day, setDay] = useState<Day>('');
-  const [desc, setDesc] = useState('');
+  const [description, setDescription] = useState('');
 
   function getTodos() {
     fetch('http://localhost:3000/api/todos')
@@ -225,7 +327,7 @@ function App() {
         setRefresh(!refreshTodos);
       }
     } catch (error) {
-      console.log(error)
+      if (error instanceof Error) console.log(error.message);
     }
   }
 
@@ -237,7 +339,7 @@ function App() {
     sendComplete(currentTodo);
   }
   
-  function showModal() {
+  function toggleModal() {
     if (visibility === 'visible') {
       setVisibility('hidden');
     } else {
@@ -248,11 +350,11 @@ function App() {
 
   function createNewTodo() {
     setCurrTodo(undefined);
-    showModal();
+    toggleModal();
   }
 
   function editTodo(event: React.SyntheticEvent) {
-    showModal();
+    toggleModal();
 
     let target = event.target as DataButton;
     let id = target.dataset.id;
@@ -262,45 +364,152 @@ function App() {
       alert('That todo does not exist but should');
     } else {
       setTitle(currTodo.title);
-      setDesc(currTodo.description);
+      setDescription(currTodo.description);
       setDay(currTodo.day);
       setYear(currTodo.year);
       setMonth(currTodo.month);
     }
   }
 
+  async function sendDelete(id: number) {
+    let options = {
+      method: 'DELETE',
+    };
+
+    let path = `http://localhost:3000/api/todos/${id}`;
+    
+    try {
+      let response: Response =  await fetch(path, options);
+      
+      if (response.ok) {
+        setRefresh(!refreshTodos);
+      } else {
+        console.error(response.status)
+      }
+    } catch(error) {
+      if (error instanceof Error) console.log(error.message);
+    }
+  }
+
+  function handleDelete(event: React.SyntheticEvent) {
+    let target = event.target as DataButton;
+    let id = Number(target.dataset.id);
+    sendDelete(id);
+  }
+
+  function sortListByDate(todos: Todo[]) {
+    // let sorted: SortedTodo;
+    // todos.forEach(todo => {
+    //   let date = todo.month && todo.year
+    // })
+  }
+
+  function todoListsByCompletion() {
+    let completed = todos.filter(todo => todo.completed);
+    let allSorted = sortListByDate(todos);
+    let completedSorted = sortListByDate(completed);
+
+    return {allSorted, completedSorted};
+  }
+
   useEffect(getTodos, [refreshTodos]);
 
   return (
     <>
+      <NavBar/>
       <button onClick={createNewTodo}>Add new todo</button>
-      <ul>
-        {todos.map((todo) => {
-          return <li key={todo.id} data-id={String(todo.id)}>
-            {todo.title}:completed: {String(todo.completed)}
-            <button onClick={editTodo}
-                    data-id={String(todo.id)}>Edit Todo</button>
-            <button onClick={markComplete}
-                    data-id={String(todo.id)}>Toggle Complete</button>
-          </li>
-        })}
-      </ul>
+      <Header title={'Your Todo List'} todoCount={todos.length}/>
+      <TodoList todos={todos} editTodo={editTodo}
+                          markComplete={markComplete}
+                          handleDelete={handleDelete}/>
+      
       <div style={{"visibility": visibility}}>
         <Modal currTodo={currTodo}
                title={title}
                setTitle={setTitle}
-               desc={desc}
-               setDesc={setDesc}
+               description={description}
+               setDescription={setDescription}
                month={month}
                setMonth={setMonth}
                day={day}
                setDay={setDay}
                year={year}
                setYear={setYear}
-               showModal={showModal}
-               sendComplete={sendComplete}/>
+               toggleModal={toggleModal}
+               sendComplete={sendComplete}
+               refreshTodos={refreshTodos}
+               setRefresh={setRefresh}/>
       </div>
     </>
+  )
+}
+
+function NavBar(
+  // { todoLists }:
+  // { todoLists: string[] }
+) {
+  return (<></>);
+}
+
+function TodoList(
+  { todos, editTodo, markComplete, handleDelete }:
+  {
+    todos: Todo[],
+    editTodo: (event: React.SyntheticEvent) => void,
+    markComplete: (event: React.SyntheticEvent) => void,
+    handleDelete: (event: React.SyntheticEvent) => void,
+}
+) {
+  return (<ul>
+    {todos.map((todo) => {
+      return <TodoItem todo={todo}
+                       key={todo.id}
+                       editTodo={editTodo}
+                       markComplete={markComplete}
+                       handleDelete={handleDelete}/>
+    })}
+  </ul>)
+}
+
+function TodoItem(
+{ todo, editTodo, markComplete, handleDelete }:
+{
+  todo: Todo,
+  editTodo: (event: React.SyntheticEvent) => void,
+  markComplete: (event: React.SyntheticEvent) => void,
+  handleDelete: (event: React.SyntheticEvent) => void,
+}) {
+  function formatDate() {
+    if (todo.month && todo.year) {
+      return `${todo.month}/${todo.year}`;
+    } else {
+      return "No Due Date";
+    }
+  }
+
+  return (
+    <li data-id={String(todo.id)}>
+      {todo.title} | {formatDate()} | completed: {String(todo.completed)}
+      <button onClick={editTodo}
+              data-id={String(todo.id)}>Edit Todo</button>
+      <button onClick={markComplete}
+              data-id={String(todo.id)}>Toggle Complete</button>
+      <button onClick={handleDelete}
+              data-id={String(todo.id)}>Delete</button>
+    </li>
+  )
+}
+
+function Header(
+  { title, todoCount }: 
+  { title: string, todoCount: number }
+) {
+  return (
+    <div>
+      <h3>{title}:  
+        <span>{todoCount}</span>
+      </h3>
+    </div>
   )
 }
 

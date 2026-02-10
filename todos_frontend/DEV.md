@@ -1,3 +1,6 @@
+## TO BE DONE
++ group todos into date-based categories
++ create NAV bar
 
 ## Components
 
@@ -24,7 +27,6 @@
       - click to toggle complete
       - click to delete
 
-      | 
 
 + `modal`: create new or edit existing item
   - initially hidden, displays on `add`/`exit` anchor
